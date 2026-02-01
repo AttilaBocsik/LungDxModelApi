@@ -9,10 +9,9 @@ class Settings(BaseSettings):
     # app/core/config.py -> app/core -> app -> gyökér
     BASE_DIR: str = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-    # Modell és kategória fájlok abszolút útvonala
-    # Így a Dockerben és a Tesztben is ugyanazt az abszolút utat kapjuk meg
-    MODEL_PATH: str = os.getenv("MODEL_PATH", os.path.join(BASE_DIR, "app", "models", "xgboost_model.pkl"))
-    CATEGORY_FILE: str = os.getenv("CATEGORY_FILE", os.path.join(BASE_DIR, "category.txt"))
+    # Abszolút útvonalak a gyökérhez képest
+    CATEGORY_FILE: str = os.path.join(BASE_DIR, "category.txt")
+    MODEL_PATH: str = os.path.join(BASE_DIR, "xgboost_model.pkl")
 
     DASK_MEMORY_LIMIT: str = "4GB"
 
