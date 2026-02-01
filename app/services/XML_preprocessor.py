@@ -2,7 +2,7 @@
 import numpy as np
 import os
 from xml.etree import ElementTree
-from auxiliary import Auxiliary
+from .auxiliary import Auxiliary
 
 class XML_preprocessor(object):
     """

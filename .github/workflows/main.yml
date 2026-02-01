@@ -30,7 +30,8 @@ jobs:
 
       - name: Run Pytest
         run: |
-          # Futtatja a teszteket a tests/ mappából
+          # A PYTHONPATH beállítása biztosítja, hogy az 'app' mappát modulként lássa
+          export PYTHONPATH=$PYTHONPATH:$(pwd)
           pytest tests/
 
   build-docker:

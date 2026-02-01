@@ -7,14 +7,14 @@ import cv2
 import pandas as pd
 from matplotlib import pyplot as plt
 from pathlib import Path
-from XML_preprocessor import *
+from .XML_preprocessor import XML_preprocessor
 from skimage.draw import rectangle_perimeter
 from skimage import measure, segmentation
 from skimage.segmentation import active_contour
 from skimage.filters import roberts, sobel, scharr, prewitt
 from skimage.filters import gaussian
 from scipy import ndimage
-from images_to_df import ImagesToDf
+from .images_to_df import ImagesToDf
 
 class DicomManager(object):
     def __init__(self):

@@ -5,6 +5,22 @@ import io
 
 client = TestClient(app)
 
+def test_read_main():
+    """Alap ellenőrzés, hogy él-e az API"""
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "online" in response.json()["status"].lower()
+
+def test_predict_endpoint_exists():
+    """Ellenőrizzük, hogy a /predict végpont fogadja a fájlokat (még ha a tartalom nem is igazi DICOM)"""
+    files = {
+        "file1": ("dummy.dcm", io.BytesIO(b"not-a-dicom"), "application/dicom"),
+        "file2": ("dummy.xml", io.BytesIO(b"<xml></xml>"), "text/xml")
+    }
+    response = client.post("/predict", files=files)
+    # Itt a 400 vagy 500 hiba is elfogadható teszt szempontból, mert azt jelenti,
+    # hogy a kérés bejutott a kódodig, csak a fájl tartalmával nem tud mit kezdeni.
+    assert response.status_code != 404
 
 def test_predict_with_mock_files():
     # Készítünk egy kamu DICOM és XML fájlt a memóriában
