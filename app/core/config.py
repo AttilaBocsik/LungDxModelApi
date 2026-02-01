@@ -1,31 +1,22 @@
 import os
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    # Projekt alapinformációk
-    PROJECT_NAME: str = "CT Image XGBoost Predictor"
-    API_V1_STR: str = "/api/v1"
+    PROJECT_NAME: str = "LungDx Model API"
 
-    # Elérési utak (a Docker struktúrához igazítva)
-    BASE_DIR: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # A projekt gyökérkönyvtára (visszalépünk az app/core mappából)
+    # app/core/config.py -> app/core -> app -> gyökér
+    BASE_DIR: str = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-    # Modell beállítások
-    # A gyökérkönyvtárhoz képest nézzük (app/models/...)
-    MODEL_PATH: str = os.getenv("MODEL_PATH", os.path.join(BASE_DIR, "models", "xgboost_model.pkl"))
-    CATEGORY_FILE: str = os.getenv("CATEGORY_FILE", "category.txt")
+    # Modell és kategória fájlok abszolút útvonala
+    # Így a Dockerben és a Tesztben is ugyanazt az abszolút utat kapjuk meg
+    MODEL_PATH: str = os.getenv("MODEL_PATH", os.path.join(BASE_DIR, "app", "models", "xgboost_model.pkl"))
+    CATEGORY_FILE: str = os.getenv("CATEGORY_FILE", os.path.join(BASE_DIR, "category.txt"))
 
-    # Dask / Erőforrás beállítások
-    DASK_MEMORY_LIMIT: str = os.getenv("DASK_MEMORY_LIMIT", "4GB")
-    DASK_PROCESSES: bool = False  # Orvosi képfeldolgozásnál a False gyakran stabilabb szálkezelést ad
+    DASK_MEMORY_LIMIT: str = "4GB"
 
-    # Szerver beállítások
-    HOST: str = os.getenv("SERVER_HOST", "0.0.0.0")
-    PORT: int = int(os.getenv("SERVER_PORT", 8000))
-
-    class Config:
-        case_sensitive = True
+    model_config = SettingsConfigDict(case_sensitive=True)
 
 
-# Példányosítjuk, hogy bárhonnan importálható legyen
 settings = Settings()

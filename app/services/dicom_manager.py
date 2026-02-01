@@ -1,5 +1,4 @@
 import os
-
 import numpy as np
 import pydicom
 import SimpleITK as sitk
@@ -15,10 +14,11 @@ from skimage.filters import roberts, sobel, scharr, prewitt
 from skimage.filters import gaussian
 from scipy import ndimage
 from .images_to_df import ImagesToDf
+from app.core.config import settings  # Importáld a beállításokat
 
 class DicomManager(object):
     def __init__(self):
-        class_list = self.get_category('category.txt')
+        class_list = self.get_category(settings.CATEGORY_FILE)
         self.num_classes = len(class_list)
 
     def getUID_path(self, dicom_path):
@@ -35,15 +35,16 @@ class DicomManager(object):
     @staticmethod
     def get_category(category_file):
         """
-        Read category from category file to category list
-        :param category_file:
-        :return: Category list
+        Kategóriák beolvasása hibatűréssel
         """
+        if not os.path.exists(category_file):
+            raise FileNotFoundError(f"Kritikus hiba: A kategória fájl nem található itt: {category_file}")
+
         class_list = []
         with open(category_file, 'r') as f:
-            for line in f.readlines():
-                class_list.append(line.rstrip('\n'))
-
+            for line in f:
+                if line.strip():
+                    class_list.append(line.strip())
         return class_list
 
     @staticmethod
