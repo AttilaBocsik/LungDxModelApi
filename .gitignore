@@ -1,0 +1,58 @@
+# --- Python alapok ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# --- Orvosi adatok és CT fájlok (Soha ne kerüljenek fel!) ---
+# A DICOM fájlok nagyok és érzékenyek
+*.dcm
+*.DCM
+*.dicom
+*.xml
+data/
+temp_dicom/
+logged.txt
+
+# --- Modell fájlok és mentések ---
+# Csak akkor vedd ki a kommentet az xgboost_model.pkl elől,
+# ha a modellt nem a Git-ben, hanem máshol (pl. LFS vagy S3) tárolod.
+# xgboost_model.pkl
+*.joblib
+*.pkl
+*.npy
+
+# --- Dask és Jelenléti fájlok ---
+dask-worker-space/
+*.log
+
+# --- IDE beállítások (PyCharm, VSCode) ---
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# --- Docker ---
+.dockerignore
+# (Bár a .dockerignore maga kell, a benne lévő temp fájlok nem)
+
+# --- Környezeti változók ---
+.env
