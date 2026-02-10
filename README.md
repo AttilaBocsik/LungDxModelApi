@@ -38,9 +38,101 @@ ct-prediction-service/
 └── .dockerignore              # Amit ne másoljon bele az image-be (pl. venv, .git)
 ```
 
+### Szoftver dokumentációja
+- Telepítés: 
+```bash 
+pip install sphinx sphinx-rtd-theme
+```
+- Sphinx inicializálása
+  - A projekt gyökérmappájában (ahol a main.py is van) hozz létre egy docs mappát
+```bash
+mkdir docs
+cd docs
+sphinx-quickstart
+```
+
+#### Manuális dokumentáció készítés
+- A conf.py pontos beállítása
+  - A docs/source/conf.py fájlban a sys.path sorát módosítsd az alábbira. Ez biztosítja, hogy a src mappa legyen a csomagok gyökere:
+```python
+import os
+import sys
+
+# Nagyon fontos: a 'src' mappát kell megadni, hogy a 'dicom_labeler' látható legyen
+sys.path.insert(0, os.path.abspath('../../src'))
+
+extensions = [
+    'sphinx.ext.autodoc',  # Kinyeri a docstringeket a kódból
+    'sphinx.ext.napoleon', # Ez kezeli a Google-stílusú kommenteket
+    'sphinx.ext.viewcode', # Linket tesz a forráskódhoz
+    'sphinx_rtd_theme',    # A modern téma
+    'myst_parser',         # README.md integrálása
+]
+
+# Téma beállítása
+html_theme = 'sphinx_rtd_theme'
+
+# Ha a Sphinx nem találja a PyQt6-ot a gépén, add hozzá ezt:
+autodoc_mock_imports = ["PyQt6", "requests", "pydicom"]
+```
+
+- Az index.rst frissítése
+```text
+.. automodule:: dicom_labeler.main
+   :members:
+
+.. automodule:: dicom_labeler.ui.main_window
+   :members:
+
+.. automodule:: dicom_labeler.ui.viewer_widget
+   :members:
+```
+
+- Dokumentáció generálása (Build)/ Újra generálás (Windows alatt a docs mappában:)
+  - Töröld a régit: 
+```bash 
+.\make.bat clean
+```
+  - Futtasd az újat: 
+```bash
+.\make.bat html
+```
+
+#### Élő nézet (sphinx-autobuild)
+Prezentáció közben (vagy fejlesztés alatt) nagyon hasznos, ha nem kell folyton lefuttatnod a make html-t.
+
+- Telepítsd: 
+```bash
+pip install sphinx-autobuild
+```
+
+- Futtasd: 
+```bash
+sphinx-autobuild docs/source docs/build/html
+```
+- Ez elindít egy helyi szervert (általában a http://127.0.0.1:8000 címen), ami azonnal frissül, amint elmented a kódban a docstringet.
+
+
+#### API indítás
+0. Előfeltétel: Uvicorn telepítése
+- A terminálban (vagy a PyCharm Terminal fülén) futtasd:
+
+```bash
+pip install uvicorn
+````
+1. Módszer: Indítás a Terminálból (A leggyorsabb)
+- Nyisd meg a PyCharm alján a Terminal fület, és írd be a következőt:
+
+```bash
+uvicorn app.main:app --reload
+````
+- app.main: Ez a D:\GitProjects\LungDxModelApi\app\main.py fájlra mutat.
+- :app: Ez a main.py-ban létrehozott app = FastAPI() objektum neve.
+- --reload: Automatikusan újraindul a szerver, ha módosítod a kódot (fejlesztés közben életmentő).
+
 ## Directory haszmálat
 - python
-```
+```python
 from directory_tools import DirectoryManager
 
 dm = DirectoryManager("teszt_mappa")
@@ -59,7 +151,7 @@ print(dm.is_empty())      # True
 dm.delete_directory()
 ```
 ## FileManager haszn�lat
-```
+```python
 from directory_tools import FileManager
 
 fm = FileManager("teszt_fajl.txt")

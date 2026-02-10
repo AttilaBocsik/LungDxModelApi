@@ -9,7 +9,7 @@ import os
 import sys
 
 # Nagyon fontos: a 'src' mappát kell megadni, hogy a 'dicom_labeler' látható legyen
-sys.path.insert(0, os.path.abspath('../..'))
+sys.path.insert(0, os.path.abspath('../../app'))
 
 project = 'LungDxModelApi'
 copyright = '2026, Attila Bocsik'
@@ -36,7 +36,24 @@ language = 'hu'
 
 # Téma beállítása
 html_theme = 'sphinx_rtd_theme'
-html_static_path = ['_static']
+html_static_path = []
 
-# Ha a Sphinx nem találja a PyQt6-ot a gépén, add hozzá ezt:
-autodoc_mock_imports = ["PyQt6", "requests", "pydicom", "xgboost", "pydantic_settings", "pydantic", "dask"]
+autodoc_mock_imports = [
+    "cv2",
+    "numpy",
+    "scipy",
+    "sklearn",
+    "scikit_learn",
+
+    "pydicom",
+    "xgboost",
+    "dask",
+    "fastapi",
+    "requests",
+
+    "pydantic",
+    "pydantic_settings",
+
+    "PyQt6",
+]
+

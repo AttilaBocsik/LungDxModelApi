@@ -17,7 +17,14 @@ from .images_to_df import ImagesToDf
 from app.core.config import settings  # Importáld a beállításokat
 
 class DicomManager(object):
+    """
+    A DICOM fájlok feldolgozásáért, szegmentálásáért és maszkolásáért felelős osztály.
+    Tartalmazza a tüdőparenchyma és a tumor izolálásához szükséges algoritmusokat.
+    """
     def __init__(self):
+        """
+        Inicializálja a menedzsert és betölti a daganat kategóriákat a konfigurációs fájlból.
+        """
         class_list = self.get_category(settings.CATEGORY_FILE)
         self.num_classes = len(class_list)
 
@@ -124,7 +131,7 @@ class DicomManager(object):
             mask = np.ones_like(image) * 255
             mask = cv2.bitwise_and(mask, image, mask=roi) + cv2.bitwise_and(mask, mask, mask=~roi)
             label_array = rect[4:]
-            index = int(np.where(label_array == float(1))[0])
+            index = np.argmax(label_array)
             label = label_list[index]
             '''
             if label == 'A':
@@ -187,31 +194,55 @@ class DicomManager(object):
         return information
 
     @staticmethod
-    def load_file(filename):
+    def load_file(path):
         """
-        Feldolgozza a DICOM fájlt
-        :param filename: DICOM fájl elérési utja
-        :return: ds, img, Numpy tömb(img_array), frame_num, width, height, ch
+        Beolvas egy DICOM fájlt és kinyeri a fizikai képtulajdonságokat.
+
+        Kiszámítja a PixelSpacing és SliceThickness alapján a valós térközöket a pontos
+        méretezéshez.
+
+        :param path: A DICOM fájl elérési útja.
+        :type path: str or pathlib.Path
+        :return: Egy tuple, amely tartalmazza a pydicom adatstruktúrát, a SimpleITK képet,
+                 a numpy tömböt és a kép dimenzióit (width, height, frames).
+        :rtype: tuple
         """
-        ds = pydicom.dcmread(filename)
-        img = sitk.ReadImage(filename)
-        # Konvertaljuk a Dicom kepet NumPy tombbe
-        img_array = sitk.GetArrayFromImage(img)
-        if len(img_array.shape) == 3:
-            frame_num, width, height = img_array.shape
-            ch = 1
-            return ds, img, img_array, frame_num, width, height, ch
-        elif len(img_array.shape) == 4:
-            frame_num, width, height, ch = img_array.shape
-            return ds, img, img_array, frame_num, width, height, ch
+        ds = pydicom.dcmread(str(path))
+        img_array = ds.pixel_array.astype(np.float32)
+
+        # Spacing (térköz) adatok kinyerése és javítása a fizikai pontosság érdekében
+        spacing_x, spacing_y = 1.0, 1.0
+        spacing_z = 1.0
+
+        if "PixelSpacing" in ds:
+            spacing_x, spacing_y = map(float, ds.PixelSpacing)
+
+        spacing_z = float(getattr(ds, "SliceThickness", getattr(ds, "SpacingBetweenSlices", 1.0)))
+        if spacing_z == 0: spacing_z = 1.0
+
+        spacing = (spacing_x, spacing_y, spacing_z)
+        img_sitk = sitk.GetImageFromArray(img_array)
+        img_sitk.SetSpacing(spacing)
+
+        frame_num, width, height = (img_array.shape if len(img_array.shape) == 3
+                                    else (1, img_array.shape[0], img_array.shape[1]))
+
+        return ds, img_sitk, img_array, frame_num, width, height, 1
 
     @staticmethod
     def gvf_snake(image, rectangle_position):
         """
-        Ez az algoritmus határozza meg a daganat ROI-ját a területen.
-        :param image: Szürkeárnyalatos opencv kép numpy tömb alakja.
-        :param rectangle_position:  Regions of Interest(ROI) pozicó
-        :return: Illustrative image, Tumor points, ROI points
+        Gradient Vector Flow (GVF) Snake algoritmus a tumor kontúrjának pontosítására.
+
+        A megadott ROI (Region of Interest) téglalapból indulva ráilleszti a kontúrt
+        a daganat széleire.
+
+        :param image: Szürkeárnyalatos, normalizált kép numpy tömb formátumban.
+        :type image: numpy.ndarray
+        :param rectangle_position: Az orvosi annotáció alapján meghatározott kezdő koordináták.
+        :type rectangle_position: dict
+        :return: (Rajzolt kép, Kígyó kontúr pontjai, Eredeti ROI pontok)
+        :rtype: tuple (numpy.ndarray, numpy.ndarray, numpy.ndarray)
         """
         # image = ds.pixel_array.astype('float32')
         # Let's normalize the image between 0 and 1
@@ -251,9 +282,15 @@ class DicomManager(object):
     @staticmethod
     def get_pixels_hu(scans):
         """
-        Converts raw images to Hounsfield Units (HU).
-        Parameters: scans (Raw images)
-        Returns: image (NumPy array)
+        A nyers DICOM pixelértékeket Hounsfield Egységekké (HU) konvertálja.
+
+        Figyelembe veszi a Rescale Slope és Intercept értékeket, valamint kezeli a
+        hengerről lelógó (out-of-scan) értékeket.
+
+        :param scans: Pydicom szeletek listája.
+        :type scans: list
+        :return: HU értékekre normalizált kép.
+        :rtype: numpy.ndarray (int16)
         """
         image = np.stack([s.pixel_array for s in scans])
         image = image.astype(np.int16)
@@ -326,10 +363,15 @@ class DicomManager(object):
 
     def make_lungmask(self, slice_dcm_path_list, hu=-400):
         """
-        Szeletfájl-maszk létrehozása
-        :param slice_dcm_path_list:
-        :param hu:
-        :return: Szelet fájlok maszk tömb
+        Létrehozza a tüdőmaszkot Watershed szegmentálással.
+
+        Eltávolítja a háttért és a csontokat, csak a tüdő területét hagyja meg
+        a megadott HU küszöbérték alapján.
+
+        :param slice_dcm_path_list: Feldolgozandó DICOM fájlok útvonalai.
+        :param hu: Küszöbérték a tüdő szövet elkülönítéséhez (alapértelmezett: -400).
+        :return: Bináris maszkok listája a tüdőhöz.
+        :rtype: list[numpy.ndarray]
         """
         train_patient_scans = self.load_scans(slice_dcm_path_list)
         train_patient_images = self.get_pixels_hu(train_patient_scans)
@@ -341,6 +383,18 @@ class DicomManager(object):
         return test_patient_internal_list
 
     def preprocessing_dicom(self, dicom_path, annotation_path) -> pd.DataFrame | None:
+        """
+        A teljes előfeldolgozási csővezeték (pipeline).
+
+        Beolvassa a képet, elvégzi a GVF szegmentálást a tumoron, elkészíti a tüdőmaszkot,
+        majd a kinyert képi adatokat (eredeti, parenchyma, tumor, inverz) egy DataFrame-be
+        rendezi a modell számára.
+
+        :param dicom_path: A DICOM fájl útvonala.
+        :param annotation_path: Az orvosi XML annotáció útvonala.
+        :return: A modell bemenetére előkészített DataFrame, vagy None, ha a beteg pozíciója nem megfelelő.
+        :rtype: pandas.DataFrame or None
+        """
         dicom_path = Path(rf"{dicom_path}")
         dicom_filename = os.path.basename(dicom_path)
         information = self.load_file_information(dicom_path)
@@ -348,28 +402,31 @@ class DicomManager(object):
         patient_id = information['PatientID']
         if patient_position != 'HFS':
             return None
-
         ds, img, matrix, frame_num, width, height, ch = self.load_file(dicom_path)  # load DICOM file
         img_bitmap = self.matrix_to_image(matrix[0], ch)
         origin_img = ds.pixel_array.astype('float32')
         patient_slice = self.getUID_path(dicom_path)  # Type: <class 'pydicom.uid.UID'>
         annotations = XML_preprocessor(annotation_path, num_classes=self.num_classes).data
         k, v = list(annotations.items())[0]
-        print(f"Kulcs: {k}, Érték: {v}, DICOM név: {dicom_filename}")
+        print(f"Kulcs: {k}, Érték: {v}, DICOM név: {dicom_filename}\n")
         try:
             for x, y in patient_slice.items():
                 print(x, y)
         except KeyError as e:
             msg = f"Error: {e}"
             print(msg)
+        try:
+            tumor_mask_ndarray, roi_rectangle_position, tumor_mask_label = self.roi2rect(
+                img_name=dicom_filename,
+                img_np=img_bitmap,
+                img_data=v,
+                label_list=['A', 'B', 'D', 'G'],
+                image=origin_img)
+            # tumor_mask_label tartalma => A vagy B vagy D vagy G
+        except Exception as e:
+            msg = f"Error: {e}"
+            print(msg)
 
-        tumor_mask_ndarray, roi_rectangle_position, tumor_mask_label = self.roi2rect(
-            img_name=dicom_filename,
-            img_np=img_bitmap,
-            img_data=v,
-            label_list=['A', 'B', 'D', 'G'],
-            image=origin_img)
-        # tumor_mask_label tartalma => A vagy B vagy D vagy G
         tumor_mask_img = cv2.cvtColor(tumor_mask_ndarray, cv2.COLOR_RGB2BGR)
         tumor_mask_img_gray = cv2.cvtColor(tumor_mask_img, cv2.COLOR_BGR2GRAY)
         # Segmentation tumor at lung with snake contour

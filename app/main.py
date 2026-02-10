@@ -1,4 +1,5 @@
 import os
+import shutil
 import tempfile
 import joblib
 import dask.dataframe as dd
@@ -17,19 +18,33 @@ dm = DicomManager()
 auxiliary = Auxiliary()
 predictor = PatientModelPredictor()
 
-model_path = joblib.load(settings.MODEL_PATH)
 _model_cache = {"model": None, "last_modified": 0}
 
 
 def load_model():
-    """Modell betöltése és frissítése, ha a fájl módosult."""
-    if not os.path.exists(model_path):
-        raise FileNotFoundError(f"Modell fájl nem található: {model_path}")
+    """
+    Betölti az XGBoost modellt a lemezről, és gyorsítótárazza azt a memóriába.
+    Figyeli a fájl módosítási idejét, és automatikusan újratölti, ha a modellfájl frissült.
 
-    current_modified = os.path.getmtime(Mmodel_path)
+    :return: A betöltött joblib modell objektum.
+    :rtype: xgboost.XGBClassifier or similar
+    :raises FileNotFoundError: Ha a konfigurációban megadott elérési úton nem található a modell.
+    """
+    path = settings.MODEL_PATH
+
+    # DEBUG: Ha a hiba jelentkezik, ez kiírja, hogy mi van benne valójában
+    if not isinstance(path, str):
+        raise TypeError(f"HIBA: A settings.MODEL_PATH nem string, hanem {type(path)}! Értéke: {path}")
+
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Modell fájl nem található: {path}")
+
+    current_modified = os.path.getmtime(path)
+
     if _model_cache["model"] is None or current_modified != _model_cache["last_modified"]:
-        _model_cache["model"] = joblib.load(model_path)
+        _model_cache["model"] = joblib.load(path)
         _model_cache["last_modified"] = current_modified
+
     return _model_cache["model"]
 
 
@@ -41,7 +56,19 @@ async def root():
 @app.post("/predict")
 async def predict(file1: UploadFile = File(...), file2: UploadFile = File(...)):
     """
-    DICOM és annotációs fájl fogadása, predikció futtatása.
+    Fogadja a diagnosztikai fájlokat és végrehajtja a predikciós munkafolyamatot.
+
+    A folyamat lépései:
+    1. Ideiglenes könyvtárba menti a feltöltött DICOM és XML fájlokat.
+    2. A DicomManager segítségével elvégzi a képi előfeldolgozást és jellemző kinyerést.
+    3. Dask LocalCluster-t indít a párhuzamosított XGBoost predikcióhoz.
+    4. Az eredményeket JSON formátumban adja vissza.
+
+    :param file1: A vizsgálandó szelet DICOM (.dcm) fájlja.
+    :param file2: Az orvosi annotációkat tartalmazó XML fájl.
+    :return: A modell által becsült valószínűségek és osztályozási eredmények.
+    :rtype: fastapi.responses.JSONResponse
+    :raises HTTPException: 400-as hiba nem megfelelő DICOM pozíció (HFS) esetén, 500-as hiba feldolgozási hiba esetén.
     """
     with tempfile.TemporaryDirectory() as temp_dir:
         dicom_path = os.path.join(temp_dir, file1.filename)
@@ -75,6 +102,30 @@ async def predict(file1: UploadFile = File(...), file2: UploadFile = File(...)):
                     # JSON kompatibilis formátumra alakítás
                     serializable_metrics = auxiliary.convert_ndarray_to_list(metrics)
                     return JSONResponse(content={"results": serializable_metrics})
-
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/upload-model")
+async def upload_model(file: UploadFile = File(...)):
+    """
+    Lehetővé teszi az új XGBoost modell (.pkl) feltöltését az API-hoz.
+    A fájlt a megadott app/models/lung_dx_model_final.pkl útvonalra menti el.
+
+    :param file: A feltöltendő .pkl kiterjesztésű modell fájl.
+    :return: Visszaigazolás a sikeres feltöltésről.
+    :rtype: dict
+    """
+    target_path = settings.MODEL_PATH
+
+    try:
+        # Biztosítjuk, hogy a célkönyvtár létezik
+        os.makedirs(os.path.dirname(target_path), exist_ok=True)
+
+        # A feltöltött fájl mentése
+        with open(target_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        return {"status": "success", "message": f"Modell sikeresen frissítve: {target_path}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Hiba a modell mentése során: {str(e)}")

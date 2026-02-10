@@ -13,7 +13,7 @@ documentation for details.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Tartalom:
 
 .. include:: ../../README.md
    :parser: myst_parser.sphinx_
@@ -21,6 +21,34 @@ documentation for details.
 Modulok leírása
 ---------------
 
-.. automodule:: app.core.config
+.. automodule:: core.config
    :members:
+   :undoc-members:
 
+.. automodule:: services.auxiliary
+   :members:
+   :undoc-members:
+
+.. automodule:: services.dicom_manager
+   :members:
+   :undoc-members:
+
+.. automodule:: services.images_to_df
+   :members:
+   :undoc-members:
+
+.. automodule:: services.patient_model_predictor
+   :members:
+   :undoc-members:
+
+.. automodule:: services.XML_preprocessor
+   :members:
+   :undoc-members:
+
+.. automodule:: utils.directory_manager
+   :members:
+   :undoc-members:
+
+.. automodule:: utils.file_manager
+   :members:
+   :undoc-members:
