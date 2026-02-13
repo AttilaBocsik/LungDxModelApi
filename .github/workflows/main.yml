@@ -27,15 +27,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libglib2.0-0
 
-      - name: Install Dependencies
+      - name: Install Python Dependencies
         run: |
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest httpx
 
       - name: Run Pytest
         run: |
+          # A 'python -m pytest' használata megoldja az importálási hibákat
           export PYTHONPATH=$PYTHONPATH:$(pwd)
-          pytest tests/
+          python -m pytest tests/
 
   build-and-push:
     needs: test
