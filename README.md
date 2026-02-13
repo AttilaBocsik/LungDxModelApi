@@ -1,8 +1,9 @@
-# Tüdő daganat XGBoost model kiszolgáló API
-- API elérés: http://localhost:8000/predict
-- Másik gépről: http://IP-cim:8000/predict
+# LungDx Model API - CT Képfeldolgozó és Predikciós Rendszer
+Ez az API egy előre betanított XGBoost modellt használ tüdő CT felvételek diagnosztikai elemzéséhez. 
+A rendszer Dask alapú párhuzamosítást és FastAPI keretrendszert használ a nagy adatmennyiségek hatékony kezeléséhez.
 
-## Mappa struktúra
+
+### Mappa struktúra
 ```text
 ct-prediction-service/
 ├── .github/
@@ -100,29 +101,24 @@ autodoc_mock_imports = ["PyQt6", "requests", "pydicom"]
 
 #### Élő nézet (sphinx-autobuild)
 Prezentáció közben (vagy fejlesztés alatt) nagyon hasznos, ha nem kell folyton lefuttatnod a make html-t.
-
 - Telepítsd: 
 ```bash
 pip install sphinx-autobuild
 ```
-
 - Futtasd: 
 ```bash
 sphinx-autobuild docs/source docs/build/html
 ```
 - Ez elindít egy helyi szervert (általában a http://127.0.0.1:8000 címen), ami azonnal frissül, amint elmented a kódban a docstringet.
 
-
 #### API indítás
 0. Előfeltétel: Uvicorn telepítése
 - A terminálban (vagy a PyCharm Terminal fülén) futtasd:
-
 ```bash
 pip install uvicorn
 ````
 1. Módszer: Indítás a Terminálból (A leggyorsabb)
 - Nyisd meg a PyCharm alján a Terminal fület, és írd be a következőt:
-
 ```bash
 uvicorn app.main:app --reload
 ````
@@ -130,51 +126,73 @@ uvicorn app.main:app --reload
 - :app: Ez a main.py-ban létrehozott app = FastAPI() objektum neve.
 - --reload: Automatikusan újraindul a szerver, ha módosítod a kódot (fejlesztés közben életmentő).
 
-## Directory haszmálat
-- python
-```python
-from directory_tools import DirectoryManager
-
-dm = DirectoryManager("teszt_mappa")
-dm.create_directory()
-print(dm.is_directory())  # True
-print(dm.is_empty())      # True
-T�lts�k meg valamivel, majd t�r�lj�k
-with open("teszt_mappa/sample.txt", "w") as f:
-    f.write("Hell� vil�g!")
-
-print(dm.is_empty())      # False
-
-dm.clear_directory()
-print(dm.is_empty())      # True
-
-dm.delete_directory()
+#### Gyorsindítás (Docker) (docker-compose.yml).
+A legegyszerűbb módja a futtatásnak a Docker Compose használata, amely automatikusan kezeli a függőségeket és a mappák csatolását.
+1. Indítás (háttérben):
+```bash
+docker-compose up -d
 ```
-## FileManager haszn�lat
-```python
-from directory_tools import FileManager
-
-fm = FileManager("teszt_fajl.txt")
-fm.create_file("Ez egy tesztf�jl.\n")
-fm.append_to_file("Hozz�f?z�tt sor.\n")
-
-if fm.file_exists():
-    content = fm.read_file()
-    print("F�jl tartalma:\n", content)
-
-fm.delete_file()
+Az API a http://localhost:8000 címen lesz elérhető.
+2. Logok figyelése valós időben:
+```bash
+docker-compose logs -f
 ```
-### predict végpont hívás
-```python
-import requests
-url = "http://127.0.0.1:5000/predict"
-payload = {}
-files=[
-  ('file1',('1-13.dcm',open('/D:/GitProjects/DicamManagerProject/Data/Train/DICOM/Lung_Dx-A0001/04-04-2007-NA-Chest-07990/2.000000-5mm-40805/1-13.dcm','rb'),'application/octet-stream')),
-  ('file2',('1.3.6.1.4.1.14519.5.2.1.6655.2359.217649008723153656849717286154.xml',open('/D:/GitProjects/DicamManagerProject/Data/Train/ANNOTATION/A0001/1.3.6.1.4.1.14519.5.2.1.6655.2359.217649008723153656849717286154.xml','rb'),'text/xml'))
-]
-headers = {}
-response = requests.request("POST", url, headers=headers, data=payload, files=files)
-print(response.text)
-
+3. Leállítás:
+```bash
+docker-compose down
 ```
+
+### 🔐 Biztonság és Konfiguráció
+A modell frissítése védett végponton keresztül történik. Az API kulcsot a környezeti változók között állíthatod be:
+- API_KEY: A modell feltöltéséhez szükséges titkos kulcs (alapértelmezett: titkos-kulcs-123).
+- DASK_MEMORY_LIMIT: A feldolgozáshoz használt memória korlátja (pl.: 4GB).
+Ezeket a docker-compose.yml fájlban vagy egy .env fájlban módosíthatod.
+
+### 🛠 API Végpontok
+1. Diagnosztikai Predikció
+POST /predict
+Feltöltendő fájlok:
+- file1: DICOM képfájl (.dcm)
+- file2: Annotációs XML fájl (.xml)
+```bash
+curl -X 'POST' \
+  'http://localhost:8000/predict' \
+  -H 'accept: application/json' \
+  -H 'X-API-KEY: titkos-kulcs-123' \
+  -H 'Content-Type: multipart/form-data' \
+  -F 'file1=@1-08.dcm' \
+  -F 'file2=@1-08.xml'
+```
+
+2. Modell Frissítése (Védett)
+POST /upload-model
+- Fejléc: X-API-KEY: <a_te_kulcsod>
+- Body: file: Az új lung_dx_model_final.pkl fájl.
+```bash
+curl -X 'POST' \
+  'http://localhost:8000/upload-model' \
+  -H 'accept: application/json' \
+  -H 'X-API-KEY: titkos-kulcs-123' \
+  -H 'Content-Type: multipart/form-data' \
+  -F 'file=@lung_dx_model_final.pkl'
+```
+
+#### Swagger
+http://localhost:8000/docs
+
+### 📂 Naplózás és Audit
+Minden modellfrissítés automatikusan rögzítésre kerül a logged.txt fájlban az orvosi szoftverekre vonatkozó audit követelményeknek megfelelően.
+A logokat a konténeren kívül is eléred a projekt gyökérkönyvtárában.
+
+### 🤖 CI/CD Pipeline
+A projekt GitHub Actions-t használ:
+- Test: Minden push/PR esetén lefutnak a Pytest tesztek.
+- Build & Push: A main ágra való push esetén az új Docker image automatikusan elkészül és feltöltődik a GitHub Container Registry-be (GHCR).
+
+### Teszt futtatása
+A terminálban (vagy a Docker konténeren belül) egyszerűen add ki ezt a parancsot:
+```bash
+pytest tests/
+```
+
+

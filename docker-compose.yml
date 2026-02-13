@@ -1,0 +1,23 @@
+services:
+  medical-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lung_ct_api
+    ports:
+      - "8000:8000"
+    environment:
+      - API_KEY=${API_KEY:-titkos-kulcs-123} # .env fájlból olvassa, vagy default
+      - DASK_MEMORY_LIMIT=4GB
+    volumes:
+      # Felcsatoljuk a modellek mappáját, hogy az /upload-model végponton
+      # feltöltött .pkl fájlok a host gépen is megmaradjanak.
+      - ./app/models:/app/app/models
+      # Felcsatoljuk a log fájlt, hogy kívülről is lásd az audit nyomokat.
+      - ./logged.txt:/app/logged.txt
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

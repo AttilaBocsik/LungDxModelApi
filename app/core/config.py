@@ -33,6 +33,9 @@ class Settings(BaseSettings):
 
     DASK_MEMORY_LIMIT: str = "4GB"
 
+    # Biztonsági kulcs a modell feltöltéséhez (környezeti változóból vagy default)
+    API_KEY: str = os.getenv("API_KEY", "titkos-kulcs-123")
+
     model_config = SettingsConfigDict(case_sensitive=True)
 
 

@@ -1,10 +1,23 @@
+# Python
 __pycache__/
 *.py[cod]
-.git/
+*$py.class
 .venv/
 venv/
-.env
-tests/
+
+# Adatok és Modellek (Ezeket API-n töltjük fel, ne legyenek a képben!)
+app/models/*.pkl
+data/
+temp_dicom/
+logged.txt
+
+# Git & IDE
+.git/
+.gitignore
+.idea/
+.vscode/
+
+# CI/CD & Docker
 .github/
-*.log
-data/tmp/
+Dockerfile
+docker-compose.yml
