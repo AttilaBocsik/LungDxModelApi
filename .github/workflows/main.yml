@@ -38,7 +38,11 @@ jobs:
   build-docker:
     needs: test
     runs-on: ubuntu-latest
-    # Csak akkor fut le, ha a tesztek sikeresek és a main ágra pusholunk
+    # Ez a rész mondja meg a GitHub-nak, hogy a token írhasson a registry-be
+    permissions:
+      contents: read
+      packages: write
+
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
@@ -53,7 +57,6 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # EZ A JAVÍTÁS: Kényszerítjük a kisbetűs formátumot egy köztes lépésben
       - name: Lowercase the repo owner name
         id: prep
         run: |
@@ -64,7 +67,6 @@ jobs:
         with:
           context: .
           push: true
-          # Most már a biztonságos, kisbetűs nevet használjuk
           tags: ghcr.io/${{ steps.prep.outputs.owner }}/lungdxmodelapi:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
