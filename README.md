@@ -121,6 +121,17 @@ curl -X 'POST' \
 ```
 2. Update Model (Protected)
 POST /upload-model
+- Header: X-API-KEY: <You key>
+- Body: file: New lung_dx_model_final.pkl file.
+```bash
+curl -X 'POST' \
+  'http://localhost:8000/upload-model' \
+  -H 'accept: application/json' \
+  -H 'X-API-KEY: titkos-kulcs-123' \
+  -H 'Content-Type: multipart/form-data' \
+  -F 'file=@lung_dx_model_final.pkl'
+```
+Swagger: http://localhost:8000/docs
 
 ### Logging and Audit
 All model updates are automatically recorded in the logged.txt file, complying with medical software audit requirements.
